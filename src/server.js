@@ -3,6 +3,7 @@ const db = require("../src/database/db");
 
 // importing routes
 const routesUser = require("./routes/users");
+const routesCompany = require("./routes/companies");
 
 //connections
 const app = express();
@@ -15,6 +16,7 @@ app.get("/", (req, res) => {
 
 //routes
 app.use("/users", routesUser);
+app.use("/companies", routesCompany);
 
 app.listen(port, () => {
   db.connect()

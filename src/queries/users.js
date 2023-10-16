@@ -6,6 +6,14 @@ const usersQueries = {
       values: [email],
     };
   },
+
+  findByName: (name) => {
+    return {
+      name: "fetch-user-name",
+      text: "SELECT * FROM users WHERE name = $1",
+      values: [name],
+    };
+  },
 };
 
 module.exports = usersQueries;
