@@ -1,17 +1,21 @@
+//Importing Express to handle request routes.
 const express = require("express");
 const router = express.Router();
 
-// cripto hash password
+// Imported bcrypt for password encryption.
 const bcrypt = require("bcrypt");
 const saltRounds = 10;
 
+//Importing database data for connection and queries for reuse.
 const db = require("../database/db");
 const usersQueries = require("../queries/users");
 
+//Method for user creation.
 router.post("/", async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
+    //Checks for inserting correct data into the database.
     if (name.length < 3) {
       return res
         .status(400)
@@ -35,8 +39,11 @@ router.post("/", async (req, res) => {
         .json({ error: "Password invalid or not provided!" });
     }
 
+    //Encrypting the password for insertion into the database.
+
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
+    //Inserting data into the database
     const text =
       "INSERT INTO users(name, email, password) VALUES ($1, $2, $3) RETURNING *";
     const values = [name, email, hashedPassword];
@@ -53,23 +60,28 @@ router.post("/", async (req, res) => {
   }
 });
 
-router.get("/", (req, res) => {
+//Method to retrieve all registered users from the database
+router.get("/", async (req, res) => {
   try {
-    db.query("SELECT * FROM users ORDER BY name ASC", (error, response) => {
-      if (error) {
-        return res.status(500).json(error);
-      }
+    await db.query(
+      "SELECT * FROM users ORDER BY name ASC",
+      (error, response) => {
+        if (error) {
+          return res.status(500).json(error);
+        }
 
-      return res.status(200).json(response.rows);
-    });
+        return res.status(200).json(response.rows);
+      }
+    );
   } catch (error) {
     return res.status(500).json(error);
   }
 });
 
-router.get("/:id", (req, res) => {
+//Method to retrieve a specific user registered in the database by ID.
+router.get("/:id", async (req, res) => {
   try {
-    db.query(
+    await db.query(
       "SELECT * FROM users WHERE id=$1",
       [req.params.id],
       (error, response) => {
@@ -89,6 +101,7 @@ router.get("/:id", (req, res) => {
   }
 });
 
+//Method to update the user in the database.
 router.put("/:id", async (req, res) => {
   try {
     const userId = req.params.id;
@@ -101,10 +114,12 @@ router.put("/:id", async (req, res) => {
       return res.status(400).json({ error: "User not found" });
     }
 
+    //Variables for updating user data, enabling updates for all or individual fields, while preserving unchanged data as original.
     let updatedName = user.rows[0].name;
     let updatedEmail = user.rows[0].email;
     let updatedPassword = user.rows[0].password;
 
+    //Checks for inserting correct data into the database.
     if (name !== undefined) {
       updatedName = name;
 
@@ -138,8 +153,6 @@ router.put("/:id", async (req, res) => {
         user.rows[0].password
       );
 
-      console.log(checkOldPassword);
-
       if (!checkOldPassword) {
         return res.status(401).json({ error: "Old password does not match" });
       }
@@ -150,9 +163,11 @@ router.put("/:id", async (req, res) => {
           .json({ error: "New password invalid or not provided!" });
       }
 
+      //Encrypting the password for insertion into the database
       updatedPassword = await bcrypt.hash(newPassword, saltRounds);
     }
 
+    //Inserting data into the database.
     const text =
       "UPDATE users SET name=$1, email=$2, password=$3 WHERE id=$4 RETURNING *";
     const values = [updatedName, updatedEmail, updatedPassword, userId];
@@ -164,7 +179,6 @@ router.put("/:id", async (req, res) => {
 
     return res.status(200).json(updatedUser.rows[0]);
   } catch (error) {
-    console.log(error);
     return res.status(500).json(error);
   }
 });

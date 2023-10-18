@@ -10,10 +10,12 @@ const DiskStorage = require("../providers/DiskStorage");
 const diskStorage = new DiskStorage();
 const upload = multer(uploadConfig.MULTER);
 
-//Method to create a company in the database.
+//Method for associate creation
 router.post("/", upload.single("image_path"), async (req, res, next) => {
   try {
     const { name, description } = req.body;
+
+    console.log("name:", name);
 
     //Checks for inserting correct data into the database.
     if (name.length < 5) {
@@ -26,31 +28,31 @@ router.post("/", upload.single("image_path"), async (req, res, next) => {
       return res.status(400).json({ error: "Description is mandatory" });
     }
 
-    //Adding the image
+    //Adding the image.
     const image_path = await diskStorage.saveFile(req.file.filename);
 
     //Inserting data into the database
     const text =
-      "INSERT INTO companies (name, description, image_path) VALUES ($1, $2, $3) RETURNING *";
+      "INSERT INTO associates (name, description, image_path) VALUES ($1, $2, $3) RETURNING *";
     const values = [name, description, image_path];
 
-    const createCompany = await db.query(text, values);
-    if (!createCompany.rows[0]) {
-      return res.status(400).json({ error: "Company not created" });
+    const createAssociate = await db.query(text, values);
+    if (!createAssociate.rows[0]) {
+      return res.status(400).json({ error: "Associate not created" });
     }
 
-    return res.status(200).json(createCompany.rows[0]);
+    return res.status(200).json(createAssociate.rows[0]);
   } catch (error) {
     console.log(error);
-    return res.status(500).json(error);
+    return res.status(500).json({ error: "Erro interno do servidor" });
   }
 });
 
-//Method to retrieve all companies registered in the database
+//Method to retrieve all associates registered in the database.
 router.get("/", async (req, res) => {
   try {
     await db.query(
-      "SELECT * FROM companies ORDER BY name ASC",
+      "SELECT * FROM associates ORDER BY name ASC",
       (error, response) => {
         if (error) {
           return res.status(500).json(error);
@@ -64,12 +66,12 @@ router.get("/", async (req, res) => {
   }
 });
 
-//Method to retrieve a specific company registered in the database by ID
-router.get("/:companyId", async (req, res) => {
+//Method to retrieve a specific associate registered in the database.
+router.get("/:associateId", async (req, res) => {
   try {
     await db.query(
-      "SELECT * FROM companies WHERE id=$1",
-      [req.params.companyId],
+      "SELECT * FROM associates WHERE id=$1",
+      [req.params.associateId],
       (error, response) => {
         if (error) {
           console.log(error);
@@ -77,7 +79,7 @@ router.get("/:companyId", async (req, res) => {
         }
 
         if (response.rows.length === 0) {
-          return res.status(404).json({ error: "Company not found" });
+          return res.status(404).json({ error: "Associate not found" });
         }
 
         return res.status(200).json(response.rows[0]);
@@ -89,28 +91,28 @@ router.get("/:companyId", async (req, res) => {
   }
 });
 
-//Method to update a specific company in the database by ID.
+//Method to update the associate in the database.
 router.put(
-  "/:companyId",
+  "/:associateId",
   upload.single("newImage_path"),
   async (req, res, next) => {
     try {
-      const companyId = req.params.companyId;
+      const associateId = req.params.associateId;
       const { name, description } = req.body;
 
-      const company = await db.query("SELECT * FROM companies WHERE id=$1", [
-        companyId,
+      const associate = await db.query("SELECT * FROM associates WHERE id=$1", [
+        associateId,
       ]);
-      console.log(company.rows[0]);
+      console.log(associate.rows[0]);
 
-      if (!company.rows[0]) {
+      if (!associate.rows[0]) {
         return res.status(400).json({ error: "User not found" });
       }
 
-      //Variables for updating company data, enabling updates for all or individual fields, while preserving unchanged data as original.
-      let updatedName = company.rows[0].name;
-      let updatedDescription = company.rows[0].description;
-      let updatedImage_Path = company.rows[0].image_path;
+      //Variables for updating user data, enabling updates for all or individual fields, while preserving unchanged data as original.
+      let updatedName = associate.rows[0].name;
+      let updatedDescription = associate.rows[0].description;
+      let updatedImage_Path = associate.rows[0].image_path;
 
       //Checks for inserting correct data into the database.
       if (name !== undefined) {
@@ -135,15 +137,15 @@ router.put(
         updatedImage_Path = req.file;
 
         const oldImagePathQuery = await db.query(
-          "SELECT image_path FROM companies WHERE id = $1",
-          [companyId]
+          "SELECT image_path FROM associates WHERE id = $1",
+          [associateId]
         );
 
         const oldImagePath = oldImagePathQuery.rows[0].image_path
           ? oldImagePathQuery.rows[0].image_path
           : null;
 
-        // Deleting the old image.
+        //Deleting the old image
         if (oldImagePath) {
           await diskStorage.deleteFile(oldImagePath);
         }
@@ -152,22 +154,22 @@ router.put(
         updatedImage_Path = await diskStorage.saveFile(req.file.filename);
       }
 
-      //Inserting data into the database
+      //Inserting data into the database.
       const text =
-        "UPDATE companies SET name = $1, description = $2, image_path = $3 WHERE id = $4 RETURNING *";
+        "UPDATE associates SET name = $1, description = $2, image_path = $3 WHERE id = $4 RETURNING *";
       const values = [
         updatedName,
         updatedDescription,
         updatedImage_Path,
-        companyId,
+        associateId,
       ];
 
-      const updatedCompany = await db.query(text, values);
-      if (!updatedCompany.rows[0]) {
-        return res.status(400).json({ error: "Company not updated" });
+      const updatedAssociate = await db.query(text, values);
+      if (!updatedAssociate.rows[0]) {
+        return res.status(400).json({ error: "Associate not updated" });
       }
 
-      return res.status(200).json(updatedCompany.rows[0]);
+      return res.status(200).json(updatedAssociate.rows[0]);
     } catch (error) {
       console.log(error);
       return res.status(500).json(error);
@@ -175,34 +177,33 @@ router.put(
   }
 );
 
-//Method to delete a specific company by ID
-router.delete("/:companyId", async (req, res) => {
+// Method to delete a specific associate and its associated image from the database
+router.delete("/:associateId", async (req, res) => {
   try {
-    const companyId = req.params.companyId;
+    const associateId = req.params.associateId;
 
-    // Check if the company exists
-    const company = await db.query("SELECT * FROM companies WHERE id=$1", [
-      companyId,
+    // Retrieve the associate's data including image path
+    const associate = await db.query("SELECT * FROM associates WHERE id=$1", [
+      associateId,
     ]);
 
-    if (!company.rows[0]) {
-      return res.status(404).json({ error: "Company not found" });
+    if (associate.rows.length === 0) {
+      return res.status(404).json({ error: "Associate not found" });
     }
 
-    // Get the image path for deletion
-    const imagePath = company.rows[0].image_path;
+    // Extract the image path from the associate data
+    const imagePath = associate.rows[0].image_path;
 
-    // Delete the company from the database
-    await db.query("DELETE FROM companies WHERE id=$1", [companyId]);
+    // Delete the associate from the database
+    await db.query("DELETE FROM associates WHERE id=$1", [associateId]);
 
     // Delete the associated image
     if (imagePath) {
       await diskStorage.deleteFile(imagePath);
     }
 
-    return res.status(200).json({ message: "Company deleted successfully" });
+    return res.status(200).json({ message: "Associate deleted successfully" });
   } catch (error) {
-    console.log(error);
     return res.status(500).json(error);
   }
 });
